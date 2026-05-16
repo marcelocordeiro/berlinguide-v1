@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Berlin — The Walk</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --black:#0a0a0a;--near-black:#111;--surface:#1e1e1e;--border:#2a2a2a;
+  --accent:#e8c97a;--accent-dim:#a8914a;--text:#e8e4dc;--text-muted:#888;
+  --text-dim:#555;--danger:#c44b3a;--red:#e05a3a;--bonus:#5b9bd5;--bonus-dim:#3d6b96;
+}
+html,body{height:100%;width:100%;background:var(--black);color:var(--text);font-family:'DM Sans',sans-serif;overflow:hidden;touch-action:pan-y}
+
+/* SPLASH */
+#splash{position:fixed;inset:0;z-index:200;background:var(--black);display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;transition:opacity .5s ease}
+#splash.hidden{opacity:0;pointer-events:none}
+.splash-city{font-family:'Bebas Neue',sans-serif;font-size:clamp(72px,20vw,160px);letter-spacing:.06em;color:var(--accent);line-height:1}
+.splash-sub{font-family:'DM Serif Display',serif;font-style:italic;font-size:clamp(12px,3vw,19px);color:var(--text-muted);letter-spacing:.3em;text-transform:uppercase;margin-top:6px}
+.splash-badge{position:absolute;top:22px;right:22px;font-family:'Bebas Neue',sans-serif;font-size:11px;letter-spacing:.18em;color:var(--accent-dim);text-align:right;line-height:1.6}
+.splash-line{width:1px;height:48px;background:linear-gradient(to bottom,transparent,var(--accent-dim));margin:24px 0 0}
+.splash-tap{font-size:10px;letter-spacing:.2em;color:var(--text-dim);text-transform:uppercase;margin-top:12px;animation:pulse 2s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:.3}50%{opacity:1}}
+
+/* APP */
+#app{display:flex;flex-direction:column;height:100vh;width:100%;opacity:0;transition:opacity .45s ease .15s;overflow:hidden}
+#app.visible{opacity:1}
+
+/* HEADER */
+header{flex-shrink:0;display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--border);background:var(--black);z-index:10}
+.hdr-left{display:flex;align-items:center;gap:10px}
+.tour-title{font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:.1em;color:var(--accent)}
+.stop-counter{font-size:10px;letter-spacing:.16em;color:var(--text-muted);text-transform:uppercase}
+.hdr-right{display:flex;align-items:center;gap:8px}
+.km-badge{font-family:'Bebas Neue',sans-serif;font-size:13px;color:var(--accent-dim);letter-spacing:.1em}
+.menu-btn{background:none;border:1px solid var(--border);color:var(--text-muted);cursor:pointer;font-size:15px;padding:5px 9px;border-radius:4px;transition:all .2s;line-height:1}
+.menu-btn:hover{border-color:var(--accent-dim);color:var(--accent-dim)}
+
+/* PROGRESS */
+.progress-track{flex-shrink:0;height:2px;background:var(--border)}
+.progress-fill{height:100%;background:var(--accent);transition:width .4s cubic-bezier(.4,0,.2,1)}
+
+/* TABS */
+.tab-bar{flex-shrink:0;display:flex;border-bottom:1px solid var(--border);background:var(--near-black)}
+.tab-btn{flex:1;padding:9px 0;font-family:'Bebas Neue',sans-serif;font-size:12px;letter-spacing:.2em;text-transform:uppercase;background:none;border:none;cursor:pointer;color:var(--text-dim);border-bottom:2px solid transparent;transition:all .2s;margin-bottom:-1px}
+.tab-btn.active{color:var(--accent);border-bottom-color:var(--accent)}
+.tab-btn.bonus-tab.active{color:var(--bonus);border-bottom-color:var(--bonus)}
+
+/* DOT NAV */
+.dot-nav{flex-shrink:0;display:flex;align-items:center;padding:8px 16px;overflow-x:auto;scrollbar-width:none;gap:5px}
+.dot-nav::-webkit-scrollbar{display:none}
+.dot{flex-shrink:0;width:7px;height:7px;border-radius:50%;background:var(--border);cursor:pointer;transition:all .2s}
+.dot.active{background:var(--accent);transform:scale(1.6)}
+.dot.visited{background:var(--accent-dim)}
+.dot.bonus-dot{background:#1e3a52}
+.dot.bonus-dot.active{background:var(--bonus);transform:scale(1.6)}
+.dot.bonus-dot.visited{background:var(--bonus-dim)}
+
+/* SWIPE AREA */
+#swipe-viewport{flex:1;overflow:hidden;position:relative}
+#swipe-track{display:flex;height:100%;width:100%;will-change:transform;transition:transform .32s cubic-bezier(.4,0,.2,1)}
+#swipe-track.dragging{transition:none}
+.swipe-hint{position:fixed;bottom:68px;left:50%;transform:translateX(-50%);background:rgba(30,30,30,.92);border:1px solid var(--border);border-radius:20px;padding:6px 15px;font-size:10px;letter-spacing:.15em;color:var(--text-muted);text-transform:uppercase;pointer-events:none;opacity:0;transition:opacity .4s ease;z-index:20;white-space:nowrap}
+.swipe-hint.show{opacity:1}
+
+/* PANEL */
+.stop-panel{flex-shrink:0;width:100%;height:100%;overflow-y:auto;overflow-x:hidden;scrollbar-width:thin;scrollbar-color:var(--border) transparent;padding-bottom:70px}
+
+/* HERO */
+.stop-hero{position:relative;aspect-ratio:16/9;overflow:hidden;background:var(--surface)}
+.stop-hero img{width:100%;height:100%;object-fit:cover;display:block}
+.hero-overlay{position:absolute;inset:0;background:linear-gradient(to top,rgba(10,10,10,.92) 0%,transparent 55%)}
+.hero-text{position:absolute;bottom:0;left:0;right:0;padding:18px 18px 14px}
+.stop-num-label{font-family:'Bebas Neue',sans-serif;font-size:11px;letter-spacing:.25em;color:var(--accent);display:block;margin-bottom:3px}
+.stop-num-label.bonus-label{color:var(--bonus)}
+.stop-name{font-family:'DM Serif Display',serif;font-size:clamp(20px,5.5vw,34px);line-height:1.1;color:var(--text)}
+.stop-subtitle{font-size:12px;color:rgba(232,201,122,.65);margin-top:3px;font-style:italic}
+.stop-tags{display:flex;gap:5px;flex-wrap:wrap;margin-top:7px}
+.tag{font-size:9px;letter-spacing:.13em;text-transform:uppercase;padding:3px 7px;border:1px solid var(--accent-dim);color:var(--accent-dim);border-radius:2px}
+.tag.red{border-color:var(--red);color:var(--red)}
+.tag.blue{border-color:var(--bonus-dim);color:var(--bonus)}
+.bonus-badge{display:inline-block;font-family:'Bebas Neue',sans-serif;font-size:9px;letter-spacing:.2em;padding:2px 8px;border:1px solid var(--bonus-dim);color:var(--bonus);border-radius:2px;margin-bottom:8px}
+
+/* BODY */
+.stop-body{padding:0 18px}
+.section{margin-top:24px}
+.section-label{font-family:'Bebas Neue',sans-serif;font-size:10px;letter-spacing:.32em;text-transform:uppercase;color:var(--accent);margin-bottom:8px;padding-bottom:5px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:7px}
+.section-label::before{content:'';display:block;width:4px;height:4px;background:var(--accent);border-radius:50%}
+.section-label.bonus-sl{color:var(--bonus)}
+.section-label.bonus-sl::before{background:var(--bonus)}
+.section-text{font-size:14.5px;line-height:1.78;color:var(--text);font-weight:300}
+.section-text p{margin-bottom:11px}
+.section-text p:last-child{margin-bottom:0}
+.section-text strong{color:var(--accent);font-weight:500}
+.fact-box{background:var(--surface);border-left:3px solid var(--accent);padding:13px 15px;margin-top:14px;border-radius:0 4px 4px 0}
+.fact-label{font-family:'Bebas Neue',sans-serif;font-size:10px;letter-spacing:.28em;color:var(--accent);margin-bottom:5px}
+.fact-box p,.alert-box p,.tip-box p{font-size:13.5px;line-height:1.68;color:var(--text);font-weight:300}
+.alert-box{background:rgba(196,75,58,.09);border-left:3px solid var(--danger);padding:13px 15px;margin-top:14px;border-radius:0 4px 4px 0}
+.alert-box .fact-label{color:var(--danger)}
+.tip-box{background:rgba(91,155,213,.08);border-left:3px solid var(--bonus-dim);padding:13px 15px;margin-top:14px;border-radius:0 4px 4px 0}
+.tip-box .fact-label{color:var(--bonus)}
+
+/* PHOTOS */
+.photo-grid{display:grid;gap:5px;margin-top:12px}
+.photo-grid.g1{grid-template-columns:1fr}
+.photo-grid.g2{grid-template-columns:1fr 1fr}
+.photo-grid.g3{grid-template-columns:1fr 1fr}
+.photo-grid.g3 .photo-item:first-child{grid-column:1/-1}
+.photo-item{position:relative;overflow:hidden;border-radius:4px;background:var(--surface);cursor:pointer}
+.photo-item img{width:100%;height:100%;object-fit:cover;display:block;aspect-ratio:16/10;transition:transform .4s ease}
+.photo-item:active img{transform:scale(1.04)}
+.photo-cap{position:absolute;bottom:0;left:0;right:0;background:linear-gradient(to top,rgba(0,0,0,.82) 0%,transparent 100%);padding:16px 9px 7px;font-size:10px;letter-spacing:.08em;color:rgba(255,255,255,.7);line-height:1.35}
+
+.pull-quote{font-family:'DM Serif Display',serif;font-style:italic;font-size:clamp(16px,4.5vw,23px);line-height:1.42;color:var(--accent);padding:16px 0;text-align:center}
+.quote-attr{font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--text-dim);text-align:center;margin-top:5px}
+.walking-note{background:var(--near-black);border:1px solid var(--border);border-radius:6px;padding:13px 15px;margin-top:14px;display:flex;align-items:flex-start;gap:10px}
+.walk-icon{font-size:18px;flex-shrink:0;margin-top:1px}
+.walking-note p{font-size:13px;line-height:1.62;color:var(--text-muted)}
+.walking-note strong{color:var(--text)}
+
+/* BOTTOM BAR */
+.bottom-bar{position:fixed;bottom:0;left:0;right:0;display:flex;align-items:center;justify-content:space-between;background:rgba(10,10,10,.96);backdrop-filter:blur(10px);border-top:1px solid var(--border);padding:9px 20px 11px;z-index:50}
+.bar-arrow{background:none;border:none;cursor:pointer;font-family:'Bebas Neue',sans-serif;font-size:13px;letter-spacing:.18em;color:var(--text-muted);padding:6px 10px;border-radius:4px;transition:all .18s}
+.bar-arrow:disabled{color:var(--text-dim);cursor:default}
+.bar-arrow.fwd{color:var(--accent)}
+.bar-arrow:not(:disabled):hover{background:var(--surface)}
+.bar-center{text-align:center}
+.bar-num{font-family:'Bebas Neue',sans-serif;font-size:21px;color:var(--text);line-height:1}
+.bar-total{font-size:10px;color:var(--text-dim);letter-spacing:.1em}
+
+/* LIST OVERLAY */
+#list-overlay{display:none;position:fixed;inset:0;z-index:150;background:var(--black);flex-direction:column}
+#list-overlay.open{display:flex}
+.list-hdr{display:flex;align-items:center;padding:14px 18px;border-bottom:1px solid var(--border);gap:12px}
+.list-hdr h2{font-family:'Bebas Neue',sans-serif;font-size:19px;letter-spacing:.1em;color:var(--accent);flex:1}
+.close-btn{background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:20px;padding:4px}
+.list-tabs{display:flex;border-bottom:1px solid var(--border)}
+.ltab{flex:1;padding:9px 0;font-family:'Bebas Neue',sans-serif;font-size:11px;letter-spacing:.18em;text-transform:uppercase;background:none;border:none;cursor:pointer;color:var(--text-dim);border-bottom:2px solid transparent;transition:all .18s;margin-bottom:-1px}
+.ltab.active{color:var(--accent);border-bottom-color:var(--accent)}
+.ltab.btab.active{color:var(--bonus);border-bottom-color:var(--bonus)}
+.stops-scroll{flex:1;overflow-y:auto;padding:6px 0}
+.sli{display:flex;align-items:center;padding:12px 18px;gap:12px;cursor:pointer;border-bottom:1px solid var(--border);transition:background .14s}
+.sli:hover,.sli:active{background:var(--surface)}
+.sli.current-sli{background:rgba(232,201,122,.06)}
+.sli.bonus-sli.current-sli{background:rgba(91,155,213,.06)}
+.sli-num{font-family:'Bebas Neue',sans-serif;font-size:17px;color:var(--accent-dim);min-width:26px;text-align:center}
+.sli-num.bnum{color:var(--bonus-dim)}
+.sli-info{flex:1}
+.sli-name{font-size:13.5px;color:var(--text);line-height:1.3}
+.sli-km{font-size:11px;color:var(--text-dim);margin-top:1px}
+.sli-check{color:var(--accent);font-size:14px}
+.sli-check.bcheck{color:var(--bonus)}
+
+/* LIGHTBOX */
+#lightbox{display:none;position:fixed;inset:0;z-index:300;background:rgba(0,0,0,.96);align-items:center;justify-content:center;cursor:zoom-out}
+#lightbox.open{display:flex}
+#lightbox img{max-width:96vw;max-height:88vh;object-fit:contain;border-radius:4px}
+#lb-cap{position:absolute;bottom:18px;left:50%;transform:translateX(-50%);font-size:11px;color:rgba(255,255,255,.55);text-align:center;max-width:80vw;letter-spacing:.05em}
+</style>
+</head>
+<body>
+
+<div id="splash">
+  <div class="splash-badge">24 ROUTE STOPS<br>+ 8 BONUS STOPS</div>
+  <div class="splash-city">BERLIN</div>
+  <div class="splash-sub">The Walk — 2025</div>
+  <div class="splash-line"></div>
+  <div class="splash-tap">Tap to begin</div>
+</div>
+
+<div id="lightbox" onclick="closeLightbox()">
+  <img id="lb-img" src="" alt="">
+  <div id="lb-cap"></div>
+</div>
+
+<div id="list-overlay">
+  <div class="list-hdr">
+    <h2>All Stops</h2>
+    <button class="close-btn" onclick="closeList()">✕</button>
+  </div>
+  <div class="list-tabs">
+    <button class="ltab active" id="ltab-route" onclick="switchListTab('route')">Route (24)</button>
+    <button class="ltab btab" id="ltab-bonus" onclick="switchListTab('bonus')">Bonus (8)</button>
+  </div>
+  <div class="stops-scroll" id="stops-scroll"></div>
+</div>
+
+<div id="app">
+  <header>
+    <div class="hdr-left">
+      <div class="tour-title">BERLIN</div>
+      <div class="stop-counter" id="stop-counter">Stop 1 of 24</div>
+    </div>
+    <div class="hdr-right">
+      <div class="km-badge" id="km-badge">0.25 km</div>
+      <button class="menu-btn" onclick="openList()">☰</button>
+    </div>
+  </header>
+  <div class="progress-track"><div class="progress-fill" id="progress-fill"></div></div>
+  <div class="tab-bar">
+    <button class="tab-btn active" id="tab-route" onclick="switchTab('route')">🗺 Route (24)</button>
+    <button class="tab-btn bonus-tab" id="tab-bonus" onclick="switchTab('bonus')">★ Bonus (8)</button>
+  </div>
+  <div class="dot-nav" id="dot-nav"></div>
+  <div id="swipe-viewport"><div id="swipe-track"></div></div>
+  <div class="swipe-hint" id="swipe-hint">← Swipe to navigate →</div>
+  <div class="bottom-bar">
+    <button class="bar-arrow" id="btn-prev" onclick="go(-1)">← Prev</button>
+    <div class="bar-center">
+      <div class="bar-num" id="bar-num">1</div>
+      <div class="bar-total" id="bar-total">/ 24</div>
+    </div>
+    <button class="bar-arrow fwd" id="btn-next" onclick="go(1)">Next →</button>
+  </div>
+</div>
+
+<script>
+const I = f => `imgs/${f}`; // all images live in imgs/ subfolder
+
+const routeStops = [
+ {id:1,km:"0.25 km",name:"Berlin TV Tower",subtitle:"Fernsehturm",tags:["Monument","Cold War","368m"],
+  heroImg:I("tv_tower.jpg"),heroAlt:"Berlin TV Tower",
+  history:`<p>The Fernsehturm is 368 metres tall — the <strong>tallest structure in Germany</strong>, visible from virtually anywhere in the city. Construction began in 1965 and inaugurated on <strong>October 3, 1969</strong>, deliberately chosen to coincide with the 20th anniversary of the GDR.</p><p>Built as a symbol of socialist technological power. The irony? When the sun hits the sphere, it creates a cross of reflected light. The atheist GDR tried everything to fix it. The population nicknamed it <em>"The Pope's Revenge."</em></p>`,
+  facts:`The sphere contains a rotating restaurant that does a full 360° turn every hour. Observation deck at 203 metres — on a clear day you can see up to 42 km away. Over 1.2 million visitors a year.`,
+  cultural:`After reunification, the tower became one of Berlin's most iconic images — a cool retro-futurist symbol appearing in countless films and music videos.`,
+  photos:[{url:I("tv_tower.jpg"),cap:"Fernsehturm — 368m, the tallest structure in Germany"},{url:I("tv_tower.jpg"),cap:"The steel sphere: 'The Pope's Revenge' (a cross appears when sunlight hits it)"}],
+  walking:"Walk south along Karl-Liebknecht-Straße toward the Neptune Fountain. About 350m — you'll pass the Red Town Hall on your right."},
+
+ {id:2,km:"0.61 km",name:"Neptune Fountain",subtitle:"Neptunbrunnen",tags:["Monument","1891","Baroque"],
+  heroImg:I("neptune.jpg"),heroAlt:"Neptune Fountain Berlin",
+  history:`<p>The Neptune Fountain dates from <strong>1891</strong> and was a gift from Berlin's city government to Kaiser Wilhelm II on his 30th birthday. Designed by Reinhold Begas in pure theatrical Baroque — Neptune at the centre, surrounded by four female figures representing Prussia's four main rivers: Rhine, Elbe, Oder and Vistula.</p><p>Originally placed in front of the Berlin Palace, dismantled during WWII for protection, then reassembled here in 1969.</p>`,
+  facts:`Each river figure carries a symbol — the Rhine holds grapes, the Elbe a fish, the Oder a heron, the Vistula a crocodile. Look closely at Neptune's chariot: it's pulled by sea horses.`,
+  cultural:`The fountain square is one of Berlin's main gathering spots — protests, raves, open-air concerts. On warm summer nights, people sit on the edge with beers from nearby kiosks. Very Berlin.`,
+  photos:[{url:I("neptune.jpg"),cap:"Neptunbrunnen — Neptune surveys the four rivers of Prussia"}],
+  walking:"Continue south past the Marx-Engels-Forum. The monument is just ahead."},
+
+ {id:3,km:"0.97 km",name:"Marx & Engels Monument",subtitle:"Marx-Engels-Forum",tags:["Monument","Communist History","GDR"],
+  heroImg:I("marx_engels.jpg"),heroAlt:"Marx and Engels statues Berlin",
+  history:`<p>Unveiled in <strong>1986</strong>, just three years before the Wall fell. Karl Marx sits, Engels stands beside him, both in bronze, gazing toward where the Palace of the Republic once stood (demolished 2008).</p><p>The monument survived reunification because it's now a historical curiosity — a Berlin joke that everyone's in on.</p>`,
+  facts:`Stainless steel columns around the statues carry documentary photographs of workers' struggles across history. Tourists constantly pose with them, often ironically.`,
+  cultural:`The Palace of the Republic — the GDR's parliament and culture centre — stood visible just across the water. Demolished despite massive protest from eastern Berliners who saw it as their identity, replaced by the reconstructed Prussian palace. That debate about memory is still alive.`,
+  photos:[{url:I("marx_engels.jpg"),cap:"Marx-Engels Monument — opened 1986, three years before the Wall fell. Berlin's most ironic selfie spot."}],
+  walking:"Cross the street toward the Humboldt Forum — the newly reconstructed palace just by the water."},
+
+ {id:4,km:"1.17 km",name:"Berlin Palace — Humboldt Forum",subtitle:"Stadtschloss",tags:["Historical Site","Reconstruction","Controversy"],
+  heroImg:I("humboldt_forum.jpg"),heroAlt:"Berlin Palace Humboldt Forum",
+  history:`<p>The Berlin City Palace stood here from <strong>1443</strong> until damaged in WWII and controversially demolished by the GDR in <strong>1950</strong> to make way for a parade ground. The GDR built the Palace of the Republic here — later demolished after reunification.</p><p>The rebuilt palace (completed 2020) is a €680 million reconstruction of the baroque exterior, housing the Humboldt Forum museum of world cultures.</p>`,
+  facts:`Craftsmen spent years recreating baroque stonework by hand. But the Humboldt Forum has been criticized for holding colonial artefacts taken from Africa and Asia. The repatriation debate is one of Germany's most heated cultural conversations.`,
+  cultural:`The name honors brothers Alexander von Humboldt (explorer/naturalist) and Wilhelm von Humboldt (linguist). Alexander's voyages to South America were among the 18th century's great scientific expeditions — but the collection includes artefacts obtained under highly questionable circumstances.`,
+  photos:[{url:I("humboldt_forum.jpg"),cap:"The reconstructed Berlin Palace — €680 million, completed 2020. Baroque outside, controversy inside."}],
+  walking:"The Berlin Cathedral is right beside you — cross the small bridge toward it."},
+
+ {id:5,km:"1.40 km",name:"Berlin Cathedral",subtitle:"Berliner Dom",tags:["Religious Site","Hohenzollern","Monument"],
+  heroImg:I("dom.jpg"),heroAlt:"Berlin Cathedral",
+  history:`<p>The cathedral's origins date to 1536, but the magnificent building today was built <strong>1894–1905</strong> under Kaiser Wilhelm II, who wanted something to rival St. Peter's in Rome. Five domes, mosaics, marble everywhere.</p><p>Severely damaged in WWII. Restoration began in <strong>1975</strong> and wasn't fully completed until <strong>1993</strong>. Below is a crypt with sarcophagi of over 90 <strong>Hohenzollern dynasty</strong> members.</p>`,
+  facts:`The organ inside has 7,269 pipes, built by Wilhelm Sauer in 1905. The crypt is oddly moving — the last Kaiser only died in 1941. These ornate sarcophagi feel very close in time.`,
+  cultural:`The Hohenzollerns ruled Prussia and Germany for 500 years. Kaiser Wilhelm II was the last — he abdicated in 1918 and lived in exile in the Netherlands until 1941. The German monarchy ended so recently that people alive today had grandparents who were subjects of an emperor.`,
+  photos:[{url:I("dom.jpg"),cap:"Berliner Dom — five domes, built to rival St. Peter's in Rome"},{url:I("dom_interior.jpg"),cap:"The cathedral interior — the Hohenzollern crypt lies below"}],
+  walking:"Head northwest along the island — entering Museum Island, one of UNESCO's great concentrations of museums."},
+
+ {id:6,km:"1.81 km",name:"Colonnade Courtyard",subtitle:"Kolonnadenhof — Museum Island",tags:["UNESCO","Architecture","Museum Island"],
+  heroImg:I("museum_island.jpg"),heroAlt:"Museum Island Berlin",
+  history:`<p><strong>Museum Island</strong> — five major museums on a small island in the Spree, declared a UNESCO World Heritage Site in <strong>1999</strong>. Built over a century (1830–1930), housing collections from ancient Egypt to Pergamon's towering Greek altar.</p><p>During WWII collections were evacuated — but much was looted by Soviet forces and only gradually returned.</p>`,
+  facts:`The Pergamon Museum contains the reconstructed Pergamon Altar (165 BC), the Ishtar Gate from Babylon (575 BC), and the Market Gate of Miletus. The Nefertiti bust has been here since 1920; Egypt has repeatedly requested its return.`,
+  cultural:`Karl Friedrich Schinkel's vision shaped Museum Island. The Altes Museum (1830) was Europe's first purpose-built public museum — revolutionary in the idea that art should be accessible to all, not just aristocrats.`,
+  photos:[{url:I("nefertiti.jpg"),cap:"The Nefertiti bust — at the Neues Museum since 1920. Egypt wants it back."},{url:I("pergamon.jpg"),cap:"Pergamon Altar, 165 BC — brought from Turkey in the 19th century"}],
+  walking:"Continue north along the island — heading toward Unter den Linden."},
+
+ {id:7,km:"1.93 km",name:"German Historical Museum",subtitle:"Deutsches Historisches Museum",tags:["Historical Site","Baroque","Must-See"],
+  heroImg:I("dhm.jpg"),heroAlt:"German Historical Museum Berlin",
+  history:`<p>The Zeughaus — baroque arsenal, built <strong>1695–1730</strong> — is the oldest building on Unter den Linden. It now houses the German Historical Museum, covering 2,000 years of German history.</p><p>The modern glass extension behind it was designed by <strong>I.M. Pei</strong> (who also designed the Louvre pyramid), opened 2003. The museum doesn't flinch covering Nazism and the Holocaust.</p>`,
+  facts:`Look up at the keystones on the outer courtyard — dying warriors' faces carved by Andreas Schlüter. One of Berlin's most underrated sculptural masterpieces. 7,000 items on permanent display.`,
+  cultural:`Pei was 85 when the glass extension opened. It connects to a long Berlin tradition of placing bold modern architecture directly beside historic buildings — a city comfortable with its own contradictions.`,
+  photos:[{url:I("dhm.jpg"),cap:"The Zeughaus — oldest building on Unter den Linden, now Germany's main history museum"},{url:I("zeughaus_court.jpg"),cap:"The baroque inner courtyard — keystones show dying warriors carved by Schlüter"}],
+  walking:"You're on Unter den Linden — Berlin's grand imperial boulevard. Walk west toward the Neue Wache."},
+
+ {id:8,km:"2.04 km",name:"Neue Wache",subtitle:"Central Memorial of Germany",tags:["Memorial","WWI & WWII","Schinkel"],
+  heroImg:I("neue_wache.jpg"),heroAlt:"Neue Wache Berlin",
+  history:`<p>Designed by <strong>Karl Friedrich Schinkel</strong> in 1816 as a royal guardhouse, now Germany's central national war memorial. The interior houses Käthe Kollwitz's devastating sculpture <em>"Mother with her Dead Son"</em> — made mourning her own son, killed in WWI.</p><p>The building is open to the sky — a circular oculus lets rain fall on the sculpture. In winter, snow settles on mother and child.</p>`,
+  facts:`After reunification in 1990, Chancellor Kohl redesignated it as a memorial to ALL victims of war and tyranny — controversial because it equated victims with perpetrators.`,
+  cultural:`Kollwitz lost her son Peter at 18 in WWI (1914). Then her grandson Peter — named after his uncle — died in WWII. She died in 1945, weeks before the war ended. The figure in that room holds everyone's grief.`,
+  photos:[{url:I("neue_wache.jpg"),cap:"Neue Wache exterior"},{url:I("kollwitz.jpg"),cap:"Käthe Kollwitz, 'Mother with Dead Son' — under the open oculus. Rain falls on them."}],
+  walking:"Continue west on Unter den Linden — Humboldt University is right across the street."},
+
+ {id:9,km:"2.20 km",name:"Humboldt University",subtitle:"Humboldt-Universität zu Berlin",tags:["Historical Site","Academia","Book Burning"],
+  heroImg:I("humboldt_uni.jpg"),heroAlt:"Humboldt University Berlin",
+  history:`<p>Founded in 1809 by <strong>Wilhelm von Humboldt</strong> — one of the world's first modern research universities. Alumni include <strong>Karl Marx, Friedrich Engels, Heinrich Heine, Albert Einstein, Max Planck, Georg Hegel</strong> and over 40 Nobel laureates.</p><p>On <strong>May 10, 1933</strong>, Nazi students burned 20,000 books on the square in front of this building — one of the most symbolic acts of the regime.</p>`,
+  facts:`Look for the underground memorial in Bebelplatz — a glass panel in the cobblestones reveals a room full of empty bookshelves. The inscription: Heine's 1820 prophecy: <em>"Where they burn books, they will ultimately burn people also."</em> He wrote it 113 years before the Nazis did exactly that.`,
+  cultural:`The square is also where Frederick the Great asked to be buried, beside his greyhounds. His final wish was ignored for 205 years. In 1991, after reunification, he was finally reinterred at Sanssouci as he wished.`,
+  photos:[{url:I("book_burning.jpg"),cap:"Book burning at Bebelplatz, Berlin — May 10, 1933. 20,000 books destroyed in front of cheering crowds."},{url:I("empty_library.jpg"),cap:"The 'Empty Library' memorial — a glass panel in the Bebelplatz pavement reveals empty shelves below"}],
+  walking:"Head west on Unter den Linden — the State Library is a short walk ahead on your right."},
+
+ {id:10,km:"2.49 km",name:"Berlin State Library",subtitle:"Staatsbibliothek zu Berlin",tags:["Monument","Library","Wim Wenders"],
+  heroImg:I("stabi.jpg"),heroAlt:"Berlin State Library",
+  history:`<p>Founded in <strong>1661</strong> by Elector Friedrich Wilhelm, one of the largest libraries in the German-speaking world. During WWII it evacuated millions of volumes — scattered across Germany and Poland, some still not fully recovered.</p><p>After the Wall there were TWO state libraries — one East, one West. Reunified now, both still operate as major research centres.</p>`,
+  facts:`The inner courtyard is a genuine hidden gem — shaded, quiet, café tables in summer, free to enter. The institution holds the manuscript to Beethoven's Ninth Symphony.`,
+  cultural:`Wim Wenders filmed key scenes of <strong>"Wings of Desire" (1987)</strong> here — angels walk unseen among readers, listening to their thoughts. One of cinema's great love letters to Berlin: divided, melancholy, and strangely beautiful.`,
+  photos:[{url:I("stabi.jpg"),cap:"The State Library on Unter den Linden — founded 1661"},{url:I("wings_desire.jpg"),cap:"'Wings of Desire' (1987) — Wim Wenders filmed angels among the readers here"}],
+  walking:"Turn left at the next block toward Bebelplatz."},
+
+ {id:11,km:"2.93 km",name:"Old Library (Kommode)",subtitle:"Alte Bibliothek — Bebelplatz",tags:["Historical Site","Book Burning","1780"],
+  heroImg:I("kommode.jpg"),heroAlt:"Old Library Bebelplatz Berlin",
+  history:`<p>Built 1775–1780 by Frederick the Great in baroque rococo style. The curved façade earned it the nickname <em>Kommode</em> (chest of drawers). Now Humboldt University's law faculty.</p><p>You're on <strong>Bebelplatz</strong> — where Nazi students burned 20,000 books on May 10, 1933, in front of cheering crowds. Josef Goebbels addressed the gathering. Works by Freud, Marx, Heinrich Mann and others were destroyed.</p>`,
+  facts:`Look for the glass panel in the cobblestones — below it, white empty bookshelves. Room for 20,000 books. The memorial by Micha Ullman, installed 1995. The most quietly devastating thing in the city.`,
+  cultural:`Heinrich Heine's inscription: <em>"Where they burn books, they will ultimately burn people also."</em> A Jewish poet, writing in Germany in 1820, predicted the Holocaust 113 years before it happened.`,
+  alert:`This square is where Nazi Germany publicly burned the books of Jewish and political authors. The memorial below the pavement is one of the most important sites of remembrance in the city.`,
+  photos:[{url:I("kommode.jpg"),cap:"The 'Kommode' — Frederick the Great's library, now site of the book burning memorial"}],
+  walking:"Head southwest toward Gendarmenmarkt — about 10 minutes on foot."},
+
+ {id:12,km:"3.11 km",name:"French Cathedral",subtitle:"Französischer Dom — Gendarmenmarkt",tags:["Monument","Huguenot","1705"],
+  heroImg:I("french_cathedral.jpg"),heroAlt:"French Cathedral Berlin",
+  history:`<p>Built in <strong>1705</strong> for Huguenot refugees who fled France after Louis XIV revoked the Edict of Nantes in 1685. Around 20,000 Huguenots settled in Prussia — skilled craftspeople who transformed Berlin's economic and cultural life.</p><p>Frederick the Great added the magnificent tower (1780–1785) to match the German Cathedral across the square.</p>`,
+  facts:`By the early 18th century, a third of Berlin's population was French-speaking. Many of Berlin's most distinguished families have Huguenot origins. Even the word "Gendarmenmarkt" comes from the French gendarmerie quartered here.`,
+  cultural:`The views from the tower at 48 metres are excellent and far less crowded than other viewpoints. The Christmas market here every December is consistently ranked among Europe's most beautiful.`,
+  photos:[{url:I("gendarmenmarkt.jpg"),cap:"Gendarmenmarkt — French Cathedral left, German Cathedral right, Konzerthaus centre"}],
+  walking:"You're already at Gendarmenmarkt — spend a moment on the square itself."},
+
+ {id:13,km:"3.90 km",name:"Gendarmenmarkt",subtitle:"Berlin's Most Beautiful Square",tags:["Historical Site","Architecture","Must-See"],
+  heroImg:I("gendarmenmarkt.jpg"),heroAlt:"Gendarmenmarkt Berlin",
+  history:`<p>Laid out in the 1680s, consistently named one of Europe's finest baroque squares. The Konzerthaus in the centre was designed by <strong>Schinkel</strong>, built 1818–1821. Napoleon's troops stabled horses inside it during the French occupation.</p><p>Heavily bombed in WWII, reduced to ruins, and the GDR spent enormous resources restoring it in the 1980s.</p>`,
+  facts:`Friedrich Schiller's statue stands in front of the Konzerthaus — Germany's greatest playwright. The Babelsberg Film Studios near Berlin produced Weimar Germany's greatest films — including Fritz Lang's Metropolis (1927) and The Blue Angel (1930, Marlene Dietrich's breakthrough).`,
+  cultural:`Marlene Dietrich — born in Berlin's Schöneberg in 1901 — was one of the first major celebrities to publicly oppose the Nazis. She became an American citizen in 1939 and performed for Allied troops. When she died in 1992, she was buried in Berlin as she requested.`,
+  photos:[{url:I("marlene.jpg"),cap:"Marlene Dietrich, c. 1933 — born in Berlin, became America's most glamorous anti-Nazi"},{url:I("konzerthaus.jpg"),cap:"The Konzerthaus (Schinkel, 1821) with Schiller's statue — Napoleon stabled horses here"}],
+  walking:"Head south — Checkpoint Charlie is about 600m away, past Kochstraße."},
+
+ {id:14,km:"4.27 km",name:"Checkpoint Charlie",subtitle:"Friedrichstraße",tags:["Cold War","WWIII Almost Happened","Must-See"],
+  heroImg:I("checkpoint_1961.jpg"),heroAlt:"Checkpoint Charlie 1961",
+  history:`<p>The main crossing between American West Berlin and Soviet East Berlin from <strong>1961 to 1990</strong>. On <strong>October 27–28, 1961</strong> — just two months after the Wall went up — American and Soviet tanks faced each other here for <strong>16 hours</strong>. Ten M48 tanks vs ten T-54s. Guns loaded. <strong>The world was hours from WWIII beginning in Berlin.</strong></p><p>Each side withdrew one tank at a time, only through back-channel diplomacy between Kennedy and Khrushchev.</p>`,
+  facts:`The standoff began when East German officials tried to check papers of American diplomatic staff — illegal under four-power agreements. Over 100 people died attempting to cross the Berlin Wall nearby.`,
+  alert:`The current installation is a tourist trap — the guardhouse is a replica, the "soldiers" are paid performers. The real history happened on this street corner. Stand here and imagine ten tanks facing ten tanks and the whole Cold War balanced on a knife's edge.`,
+  cultural:`Checkpoint Charlie became one of the Cold War's most iconic images. John le Carré set scenes here. It was THE crossing for spies, defectors, and divided families.`,
+  photos:[{url:I("checkpoint_1961.jpg"),cap:"Checkpoint Charlie, October 1961 — American and Soviet tanks face off for 16 hours. WWIII almost starts here."},{url:I("checkpoint_now.jpg"),cap:"Checkpoint Charlie today — the guardhouse is a replica, but the street corner is unchanged"}],
+  walking:"Head west along Zimmerstraße toward the Berlin World Balloon."},
+
+ {id:15,km:"4.44 km",name:"Berlin World Balloon",subtitle:"Weltballon Berlin",tags:["Viewpoint","Experience","Kreuzberg border"],
+  heroImg:I("balloon.jpg"),heroAlt:"Berlin World Balloon",
+  history:`<p>The tethered helium balloon rises to <strong>150 metres</strong>, offering 360° views. It operates just steps from where the Berlin Wall ran — you can see the former death strip, the Topography of Terror, Potsdamer Platz, and the city below.</p><p>This area between Kreuzberg and Mitte was the most tightly controlled zone along the Wall — clear, mined land where guards had orders to shoot.</p>`,
+  facts:`The balloon holds up to 30 passengers and ascent takes about 15 minutes. On clear days you can see the Fernsehturm, the Olympic Stadium, Tempelhofer Feld, and even parts of Potsdam to the southwest.`,
+  cultural:`From 150m up, the geography of the Wall becomes instantly readable — you can see exactly where it ran, how it divided neighborhoods, why some streets were cut in half. The best way to understand the Wall's physical reality in a single glance.`,
+  photos:[{url:I("balloon.jpg"),cap:"Weltballon Berlin — 150m tethered over the former death strip"},{url:I("balloon_view.jpg"),cap:"Berlin panorama from the World Balloon — you can trace where the Wall divided the city"}],
+  walking:"The Topography of Terror is right next door."},
+
+ {id:16,km:"4.89 km",name:"Topography of Terror",subtitle:"Topographie des Terrors",tags:["Historical Site","SS Headquarters","Free Entry"],
+  heroImg:I("topo_terror.jpg"),heroAlt:"Topography of Terror Berlin",
+  history:`<p>This was the administrative heart of Nazi terror: the headquarters of the <strong>SS, the Gestapo, and the SD</strong> stood on this site. From these buildings, the Holocaust was planned and executed. The buildings were destroyed at the end of the war — but the cellars where prisoners were tortured survived.</p><p>Entry is <strong>free</strong>. Open daily 10am–8pm.</p>`,
+  facts:`The outdoor exhibition runs along what remains of the Berlin Wall — you're standing beside the Wall AND on top of the SS headquarters simultaneously. The layers of history here are dizzying.`,
+  alert:`One of Germany's most important memorial sites. The documentation is graphic — photographs of executions, deportations, the mechanics of genocide. If visiting with friends who may need space to process, plan for that.`,
+  cultural:`Germany's approach to this history — direct, comprehensive, unapologetic — is globally recognized as a model of how societies can reckon with their worst moments.`,
+  photos:[{url:I("topo_terror.jpg"),cap:"The Topography of Terror documentation centre"},{url:I("wall_topo.jpg"),cap:"A remaining section of the Berlin Wall — the SS and Gestapo HQ stood on this site"}],
+  walking:"Head north toward 1953 Uprising Square — past the Federal Finance Ministry (giant grey block), originally the Nazi Luftwaffe Air Ministry."},
+
+ {id:17,km:"5.12 km",name:"1953 Uprising Square",subtitle:"Platz des Volksaufstandes von 1953",tags:["Historical Site","Cold War","Workers' Revolt"],
+  heroImg:I("uprising_1953.jpg"),heroAlt:"Soviet tanks Berlin 1953",
+  history:`<p>On <strong>June 17, 1953</strong>, workers across East Germany rose in spontaneous revolt. It began in East Berlin, then spread to over 500 cities. Hundreds of thousands went on strike demanding free elections and the resignation of the GDR government.</p><p>The Soviet Union sent in <strong>tanks and troops</strong>. Around 50–100 people were killed, hundreds arrested. The first major anti-communist uprising in Eastern Europe — and the first of many.</p>`,
+  facts:`The giant stone block behind this square was the Nazi Air Ministry (1935) — survived the war intact, became the GDR's "House of Ministries," hosted the last GDR government meetings in 1990, and is now the Federal Finance Ministry.`,
+  cultural:`The uprising inspired Bertolt Brecht's famous satirical poem: <em>"Would it not be easier for the government to dissolve the people and elect another?"</em>`,
+  photos:[{url:I("uprising_1953.jpg"),cap:"Soviet tanks crushing the East German workers' uprising, June 17, 1953 — the first Eastern Bloc revolt"}],
+  walking:"Head northwest — the German Bundesrat is a short walk through Leipziger Straße."},
+
+ {id:18,km:"5.49 km",name:"German Bundesrat",subtitle:"Bundesrat der Bundesrepublik Deutschland",tags:["Monument","Democracy","1904"],
+  heroImg:I("bundesrat.jpg"),heroAlt:"German Bundesrat",
+  history:`<p>Built 1899–1904 in neo-renaissance style as the Prussian House of Lords. After reunification, the Bundesrat (Germany's upper house, representing the 16 states) was housed here.</p><p>The Bundesrat met here for its decisive vote on German reunification in <strong>1990</strong>. The same walls, a completely different republic.</p>`,
+  facts:`Germany's federal system was deliberately designed to prevent concentration of power at the centre — a direct response to Nazi centralization. Each of Germany's 16 states sends 3–6 representatives depending on population.`,
+  cultural:`The route to Potsdamer Platz takes you through what was once the most bombed and then most desolate section of the city. The transformation since 1990 is staggering.`,
+  photos:[{url:I("bundesrat.jpg"),cap:"The Bundesrat — same walls as the Prussian House of Lords"},{url:I("reunification.jpg"),cap:"German reunification ceremony, 1990 — the new Germany voted into being"}],
+  walking:"Head northwest toward Potsdamer Platz — you'll see the Sony Centre's glass canopy ahead."},
+
+ {id:19,km:"6.13 km",name:"Potsdamer Platz",subtitle:"From Death Strip to Skyscraper",tags:["Monument","Cold War","Berlin Reborn"],
+  heroImg:I("potsdamer_now.jpg"),heroAlt:"Potsdamer Platz today",
+  history:`<p>In the 1920s, the busiest square in Europe — the first place in Germany to have a traffic light (1924). A symbol of Weimar Republic modernity and energy.</p><p>WWII bombing destroyed it almost entirely. Then the Wall was built directly through it — the death strip ran where the Sony Centre now stands. After 1990, it became the world's largest construction site, rebuilt from scratch by Renzo Piano, Helmut Jahn, and others.</p>`,
+  facts:`The original 1920s Hotel Esplanade — which Marlene Dietrich and Charlie Chaplin visited — was partly preserved inside the development. The Kaisersaal (Emperor's Hall) was physically moved 75 metres on rails to fit the new buildings.`,
+  cultural:`The Berlinale — the Berlin International Film Festival — takes place largely here every February. One of the world's top three film festivals. Past jury presidents include Steven Spielberg, Meryl Streep, and Quentin Tarantino.`,
+  photos:[{url:I("potsdamer_1920.jpg"),cap:"Potsdamer Platz in the 1920s — the busiest square in Europe, first traffic light in Germany"},{url:I("potsdamer_1977.jpg"),cap:"The same square in 1977: a barren death strip through the Wall"}],
+  walking:"Walk south on Ebertstraße — the Führerbunker site is marked by a small information board near a car park."},
+
+ {id:20,km:"6.55 km",name:"Former Führerbunker Site",subtitle:"Hitler's Last Refuge",tags:["Historical Site","WWII End","1945"],
+  heroImg:I("bunker_site.jpg"),heroAlt:"Führerbunker site Berlin",
+  history:`<p>Beneath what is now a car park, <strong>Adolf Hitler spent his last days</strong>. From January 1945 until <strong>April 30, 1945</strong>, he directed an increasingly imaginary war from this underground complex while Soviet forces closed in from all sides.</p><p>On April 30, with Soviet troops less than 500 metres away, Hitler shot himself. Eva Braun took cyanide. Their bodies were burned in the garden above. <strong>Germany surrendered eight days later.</strong></p>`,
+  facts:`The site was deliberately left unmarked for decades — authorities feared it would become a neo-Nazi pilgrimage site. A small information board was only added in 2006. The underground structure still exists but is sealed.`,
+  alert:`There is very little to see here. A small sign, a map, a car park. That's intentional. The deliberate undermarking of this site is itself a statement about memory.`,
+  cultural:`The 2004 German film <strong>Downfall (Der Untergang)</strong> dramatized Hitler's final days in the bunker with Bruno Ganz's extraordinary performance. The Hitler bunker monologue scenes became one of the internet's great meme phenomena.`,
+  photos:[{url:I("bunker_site.jpg"),cap:"The current site — a car park. The bunker is sealed below."},{url:I("hitler_garden.jpg"),cap:"Hitler in the garden above the bunker, 1939 — he died on this spot in 1945"}],
+  walking:"Walk north on Cora-Berliner-Straße — the Holocaust Memorial begins immediately. You'll walk into it."},
+
+ {id:21,km:"6.92 km",name:"Holocaust Memorial",subtitle:"Memorial to the Murdered Jews of Europe",tags:["Memorial","Must-See","2005"],
+  heroImg:I("holocaust.jpg"),heroAlt:"Holocaust Memorial Berlin",
+  history:`<p>Opened in <strong>2005</strong>, designed by American architect Peter Eisenman. <strong>2,711 concrete stelae</strong> of varying heights on undulating ground. No single entrance, no prescribed route, no explanation on the surface. You simply walk in.</p><p>As you walk deeper, the stelae grow taller, the ground descends, the outside world disappears. Below is the <em>Ort der Information</em>, with the names and stories of Jewish families murdered in the Holocaust.</p>`,
+  facts:`The memorial commemorates approximately <strong>6 million Jewish people</strong> murdered by the Nazi regime. The design debate lasted 17 years. Eisenman has said the ambiguity is deliberate: it means different things to different people.`,
+  cultural:`Some people sit on the stelae, treat it as a playground — which generates debate. What should behaviour at a memorial look like? Poet Günter Grass called it a "stone forest." There's no single right answer, and that too is intentional.`,
+  photos:[{url:I("holocaust.jpg"),cap:"2,711 concrete stelae — no entrance, no exit, no single interpretation"},{url:I("holocaust_info.jpg"),cap:"Inside the Information Centre below — names of victims projected on the walls"}],
+  walking:"Walk north on Ebertstraße toward the Brandenburg Gate — the Hotel Adlon is right at the Gate."},
+
+ {id:22,km:"7.10 km",name:"Hotel Adlon Kempinski",subtitle:"Pariser Platz",tags:["Monument","Michael Jackson","Luxury & History"],
+  heroImg:I("adlon.jpg"),heroAlt:"Hotel Adlon Berlin",
+  history:`<p>The original Hotel Adlon opened in <strong>1907</strong> — Kaiser Wilhelm II attended the opening. Guests included Charlie Chaplin, Marlene Dietrich, Greta Garbo, Enrico Caruso and the last Tsar of Russia. Largely destroyed by fire in 1945 in a drunken accident by Soviet soldiers.</p><p>The current building, opened in <strong>1997</strong>, sits directly beside the Brandenburg Gate on Pariser Platz — arguably the most prestigious address in Germany.</p>`,
+  facts:`The Adlon's lobby bar is one of the world's great hotel bars. It has served as the Berlin base for every major state visit — Obama, Putin, the British royal family.`,
+  cultural:`On <strong>November 5, 2002</strong>, Michael Jackson was staying at the Adlon. He stepped onto the balcony of his fourth-floor suite and briefly <strong>dangled his nine-month-old son, Prince Michael II ("Blanket")</strong>, over the railing in front of hundreds of fans below. It shocked the world and became one of the most talked-about celebrity moments of the 2000s.`,
+  photos:[{url:I("mj_blanket.jpg"),cap:"Michael Jackson dangling 'Blanket' from the Adlon balcony, November 2002"},{url:I("adlon_old.jpg"),cap:"The original Hotel Adlon, 1910s — one of Europe's most glamorous addresses"}],
+  walking:"Step back — the Brandenburg Gate is right in front of you."},
+
+ {id:23,km:"7.53 km",name:"Brandenburg Gate",subtitle:"Brandenburger Tor",tags:["Monument","Must-See","Symbol of Germany"],
+  heroImg:I("gate_night.jpg"),heroAlt:"Brandenburg Gate at night",
+  history:`<p>Built 1788–1791 in neoclassical style, inspired by the Propylaea entrance to the Acropolis in Athens. Napoleon marched through it in 1806 and took the Quadriga (four-horse chariot atop the gate) to Paris. It was returned in 1814.</p><p>During the Cold War, the gate stood in no-man's land — closed, unreachable. On <strong>November 9, 1989</strong>, the night the Wall fell, crowds flooded through it for the first time in 28 years.</p>`,
+  facts:`Reagan's 1987 speech — "Mr. Gorbachev, tear down this wall!" — was delivered 300 metres from here, but the gate was behind the Wall at the time. Two years later, the Wall did fall. The Quadriga has been altered by Napoleon, Prussia, the GDR, and unified Germany — a perfect symbol of Berlin's layered identity.`,
+  cultural:`Roger Waters performed <em>The Wall</em> here in 1990 for 350,000 people. U2's New Year's Eve concert in 1999 was broadcast globally. David Bowie played just on the West side in 1987, audible over the Wall to East Berliners who couldn't attend.`,
+  photos:[{url:I("gate_fall.jpg"),cap:"November 9, 1989 — the Wall falls. Crowds swarm the Gate for the first time in 28 years."},{url:I("gate_night.jpg"),cap:"The Brandenburg Gate illuminated — Germany's most powerful symbol of unity"}],
+  walking:"Walk through the gate and north into the Tiergarten park — the Soviet War Memorial is about 500m straight ahead."},
+
+ {id:24,km:"7.92 km",name:"Soviet War Memorial",subtitle:"Tiergarten — End of the Walk",tags:["Memorial","End Point","WWII"],
+  heroImg:I("soviet_memorial.jpg"),heroAlt:"Soviet War Memorial Tiergarten",
+  history:`<p>Built in <strong>1945</strong> — just months after Germany's surrender. The largest of four Soviet memorials in Berlin, commemorating approximately <strong>80,000 Soviet soldiers</strong> who died in the Battle of Berlin (April–May 1945).</p><p>The marble came from Hitler's destroyed Reichs Chancellery. The monument was built inside the British sector of West Berlin, meaning British soldiers ceremonially guarded a Soviet monument throughout the entire Cold War.</p>`,
+  facts:`The Battle of Berlin lasted three weeks: roughly 80,000 Soviet, 20,000 German military, and 20,000+ civilian deaths. The famous flag-raising photograph over the Reichstag was taken just 400 metres northeast of where you're standing.`,
+  cultural:`That flag photo — by Yevgeny Khaldei, May 2, 1945 — is one of the most iconic war images in history. It was partly staged (Khaldei brought the flag himself; a second watch was retouched from one soldier's wrist). No less historically momentous for that.`,
+  quote:"You are standing where the Second World War ended in Europe. 80,000 bodies beneath a sky that had been on fire for three weeks.",
+  photos:[{url:I("flag_reichstag.jpg"),cap:"Raising the Soviet flag over the Reichstag, May 2, 1945 — Khaldei. Partly staged and retouched."},{url:I("berlin_battle.jpg"),cap:"Soviet troops in the streets of Berlin, April 1945 — 80,000 died in the battle for this city"}],
+  walking:"You've completed the walk. 7.92 km through 500 years of history. Well done. 🍺"}
+];
+
+const bonusStops = [
+ {id:"B1",name:"East Side Gallery",subtitle:"Mühlenstraße, Friedrichshain",tags:["Berlin Wall","Street Art","Must-See"],tip:"Take U8 or S-Bahn to Ostbahnhof. About 20 min from city centre.",
+  heroImg:I("east_gallery.jpg"),heroAlt:"East Side Gallery Berlin",
+  history:`<p>The East Side Gallery is the longest remaining section of the Berlin Wall — <strong>1.3 km</strong> of original wall along the River Spree in Friedrichshain. After the Wall fell in November 1989, 118 artists from 21 countries painted it in 1990, creating one of the world's longest permanent outdoor art exhibitions.</p><p>The murals have been restored and repainted over the years — some controversially, with artists fighting to maintain their original visions against urban development that threatened to demolish sections.</p>`,
+  facts:`The most famous mural is <strong>Dmitri Vrubel's "Fraternal Kiss"</strong> — showing Soviet leader Brezhnev and East German leader Erich Honecker kissing. The inscription: "God, help me to survive this deadly love." Based on a real photograph from 1979.`,
+  cultural:`Several sections of the Wall were almost demolished in 2013 to make way for luxury apartments — artists and activists mounted a major protest. It sparked a global debate about the balance between memory, property rights, and the rights of artists to their work.`,
+  photos:[{url:I("fraternal_kiss.jpg"),cap:"Dmitri Vrubel's 'Fraternal Kiss' — Brezhnev and Honecker. Based on a real 1979 photograph."},{url:I("east_gallery.jpg"),cap:"1.3 km of original Berlin Wall — painted by 118 artists from 21 countries in 1990"}]},
+
+ {id:"B2",name:"Berlin Wall Memorial",subtitle:"Bernauer Straße",tags:["Berlin Wall","Memorial","Must-See"],tip:"Take U8 to Bernauer Straße. Open daily. Free entry.",
+  heroImg:I("wall_memorial.jpg"),heroAlt:"Berlin Wall Memorial Bernauer Strasse",
+  history:`<p>Bernauer Straße was one of the Wall's most dramatic locations — the Wall was built running along the façades of apartment buildings, so that residents' front doors were literally in East Germany while the pavement was in the West. In the early days (August 1961), people jumped from their windows to escape to West Berlin.</p><p>The memorial preserves a 200-metre section of the original Wall system — the complete "death strip" with its layers of fences, patrol roads, watchtowers, and signal systems.</p>`,
+  facts:`The Wall wasn't just one wall — it was a complex system: inner concrete wall, death strip with raked sand (to show footprints), spotlights, tripwires, patrol dogs, then the outer wall visible from the West. Over 140 people are confirmed to have died attempting to cross; the true number is likely higher.`,
+  cultural:`On August 17, 1962, 18-year-old Peter Fechter was shot while trying to cross near Checkpoint Charlie. He lay in the death strip for almost an hour, bleeding, calling for help — while guards from both sides refused to intervene. He died. The incident shocked the world.`,
+  photos:[{url:I("bernauer_1961.jpg"),cap:"Bernauer Straße, August 1961 — residents jumping from buildings to escape to West Berlin"},{url:I("wall_memorial.jpg"),cap:"The Wall Memorial today — preserving the full death strip system with watchtower"}]},
+
+ {id:"B3",name:"Kaiser Wilhelm Memorial Church",subtitle:"Gedächtniskirche — Breitscheidplatz",tags:["Monument","WWII Ruin","West Berlin"],tip:"Take U2/U9 to Zoologischer Garten. Right in the heart of former West Berlin.",
+  heroImg:I("memorial_church.jpg"),heroAlt:"Kaiser Wilhelm Memorial Church Berlin",
+  history:`<p>The original Kaiser Wilhelm Memorial Church was built 1891–1895 and bombed by the British in 1943. The ruins of the neo-Romanesque tower were deliberately left standing as a memorial to the destruction of war — earning the nickname <em>Der Hohle Zahn</em> (The Hollow Tooth).</p><p>Beside it stands a modern octagonal church (1961) in blue-tinted glass, creating an extraordinary interior light. The contrast between the blackened ruin and the modernist structure is one of Berlin's most powerful visual statements.</p>`,
+  facts:`The church is at the heart of <strong>Breitscheidplatz</strong> — the central square of former West Berlin. On <strong>December 19, 2016</strong>, a terrorist drove a truck into the Christmas market here, killing 12 people. A gold cross and broken interior columns are preserved as memorials inside.`,
+  cultural:`The church represents what Berlin does better than almost any other city: holding ruins and reconstruction in the same frame, refusing to erase or fully repair, insisting that the break is part of the story.`,
+  photos:[{url:I("memorial_church.jpg"),cap:"The 'Hollow Tooth' of West Berlin — the ruined tower deliberately preserved as a war memorial"}]},
+
+ {id:"B4",name:"Sachsenhausen",subtitle:"Concentration Camp Memorial — Oranienburg",tags:["Memorial","Holocaust","Day Trip"],tip:"S1 to Oranienburg (~45 min). Free entry. Allow 3–4 hours minimum.",
+  heroImg:I("sachsenhausen.jpg"),heroAlt:"Sachsenhausen concentration camp memorial",
+  history:`<p>Sachsenhausen was built by SS prisoners in <strong>1936</strong> as the Nazis' model concentration camp — the architectural template for all that followed. Located 35 km north of Berlin, it was used as a training ground for SS concentration camp personnel from across the Reich.</p><p>Over 200,000 people were imprisoned here between 1936 and 1945. Tens of thousands died from exhaustion, starvation, disease, medical experiments, and systematic murder.</p>`,
+  facts:`After liberation by Soviet forces in April 1945, the Soviets used Sachsenhausen as <strong>NKVD Special Camp No. 7</strong> — imprisoning German political prisoners and people denounced by neighbors. Around 12,000 more people died there between 1945 and 1950. The layers of suffering at this single site span both totalitarian systems.`,
+  alert:`This is a deeply difficult site to visit. Allow more time than you think you need. The documentation of what happened here — in full detail — is part of Germany's commitment to remembrance. It should not be rushed.`,
+  cultural:`The gate at the entrance bears the inscription <strong>ARBEIT MACHT FREI</strong> — "Work Makes You Free." This slogan appeared at concentration camps across the Reich, including Auschwitz. It was a deliberate lie, a cynical use of language to obscure the reality of what was happening inside.`,
+  photos:[{url:I("sachsenhausen.jpg"),cap:"The entrance gate — 'Arbeit Macht Frei.' A lie inscribed in iron."},{url:I("sach_roll.jpg"),cap:"The roll-call area — prisoners stood here for hours regardless of weather as an instrument of torture"}]},
+
+ {id:"B5",name:"Tempelhofer Feld",subtitle:"Tempelhof Airport — Now a Public Park",tags:["Cold War","Berlin Airlift","Unique Space"],tip:"Take U6 to Platz der Luftbrücke. Open daily, free. Bring a picnic.",
+  heroImg:I("tempelhof.jpg"),heroAlt:"Tempelhofer Feld Berlin",
+  history:`<p>Tempelhof Airport is one of the most extraordinary spaces in any world city — a massive 1930s Nazi-built airport terminal surrounded by a vast flat open space of runways and fields, all in the middle of Berlin, used as a public park since 2008.</p><p>It was here that the <strong>Berlin Airlift</strong> operated from June 1948 to May 1949 — when the Soviet Union blockaded West Berlin and the Western Allies supplied the entire city of 2 million people by air alone, landing up to 1,400 flights per day.</p>`,
+  facts:`The Berlin Airlift was one of the Cold War's defining moments. At its peak, a plane landed at Tempelhof every 90 seconds, 24 hours a day. The Soviets ultimately lifted the blockade after 11 months, having failed to force the Western powers out of Berlin.`,
+  cultural:`Today Tempelhofer Feld is one of Berlin's most beloved public spaces — people cycle, skate, fly kites, have barbecues, and watch sunsets on the runways. In 2014, Berliners voted to keep it as open space rather than allow housing development. It's one of the few places in the city that feels genuinely, stubbornly free.`,
+  photos:[{url:I("airlift.jpg"),cap:"An American C-54 landing at Tempelhof during the Berlin Airlift, 1948 — crowds watched every flight"},{url:I("tempelhof.jpg"),cap:"Tempelhofer Feld today — runways, park, and one of the world's largest buildings as a backdrop"}]},
+
+ {id:"B6",name:"Tiergarten",subtitle:"Berlin's Great Urban Park",tags:["Park","History","Central Berlin"],tip:"Walk from Brandenburg Gate. The park stretches west for 3 km. The Victory Column is at the centre.",
+  heroImg:I("tiergarten.jpg"),heroAlt:"Tiergarten Berlin from Victory Column",
+  history:`<p>The Tiergarten — "Animal Garden" — was originally a royal hunting ground and has been Berlin's central park since the 18th century. It covers 210 hectares in the heart of the city. The <strong>Victory Column</strong> (Siegessäule) at its centre was built in 1873 to celebrate Prussian military victories over Denmark, Austria, and France.</p><p>During WWII, the Tiergarten was completely devastated — trees cut down for firewood, the ground bombed and cratered. Berliners even grew vegetables here in the immediate postwar years. The park was painstakingly replanted in the 1950s.</p>`,
+  facts:`The Victory Column is 67 metres tall. You can climb to the top for views across the Tiergarten and city. The golden figure on top — <em>Goldelse</em> (Golden Lizzie) to Berliners — represents Victoria, goddess of victory. Napoleon III considered it an insult and tried to have it removed.`,
+  cultural:`Obama delivered his famous 2008 Berlin speech at the foot of the Victory Column to an estimated 200,000 people. The Tiergarten is also home to Berlin's LGBTQ+ community — the Victory Column has been a symbol of pride since the Christopher Street Day marches of the 1970s.`,
+  photos:[{url:I("tiergarten.jpg"),cap:"View from the top of the Victory Column — the Tiergarten stretches east to the Brandenburg Gate"},{url:I("obama_berlin.jpg"),cap:"Barack Obama at the Victory Column, July 2008 — 200,000 people gathered to hear him speak"}]},
+
+ {id:"B7",name:"Potsdam",subtitle:"Royal City — 30 min from Berlin",tags:["Day Trip","UNESCO","Prussian Royalty"],tip:"Take S7 or RE1 direct to Potsdam Hauptbahnhof. 30 min. Full day recommended.",
+  heroImg:I("cecilienhof.jpg"),heroAlt:"Cecilienhof Palace Potsdam",
+  history:`<p>Potsdam was the royal seat of the Hohenzollern dynasty — Berlin's regal twin, 30 km southwest. For 300 years it was where Prussian kings and German emperors built their palaces, held court, and shaped European history.</p><p>The city is also where the <strong>Potsdam Conference</strong> took place in July–August 1945 — when Churchill (then Attlee), Truman, and Stalin met at the Cecilienhof Palace to decide the fate of post-war Germany. The decisions made here drew the maps that defined the Cold War.</p>`,
+  facts:`The Dutch Quarter (Holländisches Viertel) in Potsdam is one of the best-preserved examples of 18th-century Dutch-style architecture outside the Netherlands — built by Frederick William I to house Dutch craftspeople he recruited to modernize Prussia.`,
+  cultural:`The Potsdam Conference is where Truman first told Stalin about the atomic bomb (Truman: "a weapon of unusual destructive force." Stalin: "hoped we would make good use of it against Japan"). Churchill was replaced mid-conference by Attlee after Labour's surprise election victory. The meeting that shaped the world happened in a palace built for a Prussian prince.`,
+  photos:[{url:I("cecilienhof.jpg"),cap:"Cecilienhof Palace — where Truman, Churchill/Attlee, and Stalin divided post-war Europe in 1945"},{url:I("potsdam_dutch.jpg"),cap:"The Dutch Quarter — 18th century Dutch-style houses in the heart of Potsdam"}]},
+
+ {id:"B8",name:"Sanssouci Park",subtitle:"Frederick the Great's Retreat — Potsdam",tags:["Day Trip","UNESCO","Frederick the Great"],tip:"From Potsdam Hbf, take tram 91 or bus 695 to Sanssouci. Combine with a Potsdam visit.",
+  heroImg:I("sanssouci.jpg"),heroAlt:"Sanssouci Palace gardens Potsdam",
+  history:`<p>Sanssouci — French for "without worry" — was Frederick the Great's private summer retreat, built 1745–1747. He designed much of it himself and spent as many summers here as possible, away from the formality of the Berlin court. He played the flute, corresponded with Voltaire, and preferred the company of his dogs to most humans.</p><p>The park covers 290 hectares and contains dozens of palaces, pavilions, and gardens. Frederick's tomb is here — he was finally buried beside his greyhounds in 1991, 205 years after his death, when his wish was finally honored after reunification.</p>`,
+  facts:`Frederick the Great was one of the Enlightenment's most contradictory figures — a military genius who expanded Prussia through ruthless warfare, but also a philosopher-king who reformed the justice system, promoted religious tolerance, and corresponded with the greatest minds of his era. Voltaire stayed at Sanssouci for three years (1750–1753) before they fell out spectacularly.`,
+  cultural:`The park contains the <strong>Chinese House</strong> (Chinesisches Haus), a gilded pavilion from 1757 reflecting Europe's 18th-century obsession with chinoiserie — an imaginary, romanticized "China." It's beautiful and ridiculous simultaneously. Also in the park: the New Palace, which Frederick built after the Seven Years' War specifically to show that Prussia wasn't exhausted by the conflict. It was a massive bluff in stone.`,
+  photos:[{url:I("sanssouci.jpg"),cap:"Sanssouci Palace and its terraced vineyard gardens — Frederick the Great's personal retreat"},{url:I("frederick_tomb.jpg"),cap:"Frederick the Great's tomb — finally buried here in 1991, beside his greyhounds, as he wished"}]}
+];
+
+// ─────────────────────────────────────────────────────────────────────────────
+// STATE
+// ─────────────────────────────────────────────────────────────────────────────
+let activeTab='route', routeIdx=0, bonusIdx=0;
+const visitedRoute=new Set([0]), visitedBonus=new Set();
+const currentStops=()=>activeTab==='route'?routeStops:bonusStops;
+const currentIdx=()=>activeTab==='route'?routeIdx:bonusIdx;
+const setIdx=i=>{if(activeTab==='route')routeIdx=i;else bonusIdx=i;};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// BUILD CARD
+// ─────────────────────────────────────────────────────────────────────────────
+function buildCard(s,isBonus){
+  const isLast=!isBonus&&s.id===routeStops[routeStops.length-1].id;
+  const cols=!s.photos?.length?'':s.photos.length===1?'g1':s.photos.length===2?'g2':'g3';
+  const photoGrid=s.photos?.length?`
+    <div class="section">
+      <div class="section-label${isBonus?' bonus-sl':''}">Photos</div>
+      <div class="photo-grid ${cols}">
+        ${s.photos.map(p=>`<div class="photo-item" onclick="openLightbox('${p.url}','${p.cap.replace(/'/g,"\\'")}')"><img src="${p.url}" alt="${p.cap}" loading="lazy"><div class="photo-cap">${p.cap}</div></div>`).join('')}
+      </div>
+    </div>`:'';
+  const alertBox=s.alert?`<div class="alert-box"><div class="fact-label">⚠ Note</div><p>${s.alert}</p></div>`:'';
+  const tipBox=s.tip?`<div class="tip-box"><div class="fact-label">🗺 Getting There</div><p>${s.tip}</p></div>`:'';
+  const quoteBlock=s.quote?`<div class="pull-quote">"${s.quote}"</div><div class="quote-attr">— ${s.subtitle}</div>`:'';
+  const walkBlock=(!isBonus&&!isLast)?`<div class="walking-note"><div class="walk-icon">🚶</div><p><strong>Next:</strong> ${s.walking}</p></div>`:'';
+  const bonusBadge=isBonus?`<div style="margin-top:20px"><span class="bonus-badge">★ Bonus Stop — Off Route</span></div>`:'';
+  return `
+    <div class="stop-hero">
+      <img src="${s.heroImg}" alt="${s.heroAlt}" loading="lazy">
+      <div class="hero-overlay"></div>
+      <div class="hero-text">
+        <span class="stop-num-label${isBonus?' bonus-label':''}">${isBonus?`Bonus · ${s.subtitle}`:`Stop ${s.id} of ${routeStops.length} · ${s.km}`}</span>
+        <div class="stop-name">${s.name}</div>
+        ${s.subtitle&&!isBonus?`<div class="stop-subtitle">${s.subtitle}</div>`:''}
+        <div class="stop-tags">${s.tags.map(t=>`<span class="tag${t.includes('WWIII')||t.includes('Almost')?` red`:isBonus?` blue`:''}">${t}</span>`).join('')}</div>
+      </div>
+    </div>
+    <div class="stop-body">
+      ${bonusBadge}${tipBox}
+      <div class="section"><div class="section-label${isBonus?' bonus-sl':''}">History</div><div class="section-text">${s.history}</div></div>
+      ${alertBox}${photoGrid}
+      <div class="section"><div class="fact-box"><div class="fact-label">★ Interesting Fact</div><p>${s.facts}</p></div></div>
+      <div class="section"><div class="section-label${isBonus?' bonus-sl':''}">Culture & References</div><div class="section-text"><p>${s.cultural}</p></div></div>
+      ${quoteBlock}${walkBlock}
+    </div>`;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// RENDER
+// ─────────────────────────────────────────────────────────────────────────────
+function renderAll(){
+  const track=document.getElementById('swipe-track');
+  const dotNav=document.getElementById('dot-nav');
+  track.innerHTML='';dotNav.innerHTML='';
+  const stops=currentStops(),isBonus=activeTab==='bonus';
+  stops.forEach((s,i)=>{
+    const panel=document.createElement('div');
+    panel.className='stop-panel';panel.id=`panel-${i}`;
+    panel.innerHTML=buildCard(s,isBonus);
+    track.appendChild(panel);
+    const dot=document.createElement('div');
+    const visited=isBonus?visitedBonus:visitedRoute;
+    const cur=currentIdx();
+    dot.className='dot'+(isBonus?' bonus-dot':'')+(i===cur?' active':visited.has(i)?' visited':'');
+    dot.id=`dot-${i}`;dot.onclick=()=>goTo(i);
+    dotNav.appendChild(dot);
+  });
+  const idx=currentIdx();
+  const tr=document.getElementById('swipe-track');
+  tr.style.transition='none';tr.style.transform=`translateX(${-idx*100}%)`;
+  requestAnimationFrame(()=>{tr.style.transition='';});
+  updateUI();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TAB SWITCH
+// ─────────────────────────────────────────────────────────────────────────────
+function switchTab(tab){
+  activeTab=tab;
+  document.getElementById('tab-route').classList.toggle('active',tab==='route');
+  document.getElementById('tab-bonus').classList.toggle('active',tab==='bonus');
+  renderAll();showHint();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// NAVIGATION
+// ─────────────────────────────────────────────────────────────────────────────
+function go(dir){goTo(currentIdx()+dir);}
+function goTo(idx){
+  const stops=currentStops();
+  if(idx<0||idx>=stops.length)return;
+  const prev=currentIdx();
+  const visited=activeTab==='route'?visitedRoute:visitedBonus;
+  document.getElementById(`dot-${prev}`)?.classList.remove('active');
+  document.getElementById(`dot-${prev}`)?.classList.add('visited');
+  document.getElementById(`panel-${prev}`)?.scrollTo({top:0});
+  setIdx(idx);visited.add(idx);
+  const dot=document.getElementById(`dot-${idx}`);
+  dot?.classList.remove('visited');dot?.classList.add('active');
+  dot?.scrollIntoView({behavior:'smooth',block:'nearest',inline:'center'});
+  document.getElementById('swipe-track').style.transform=`translateX(${-idx*100}%)`;
+  updateUI();
+}
+function updateUI(){
+  const stops=currentStops(),idx=currentIdx(),s=stops[idx],isBonus=activeTab==='bonus';
+  document.getElementById('stop-counter').textContent=isBonus?`Bonus ${idx+1} of ${stops.length}`:`Stop ${idx+1} of ${stops.length}`;
+  document.getElementById('km-badge').textContent=isBonus?'★ Off route':s.km;
+  document.getElementById('bar-num').textContent=idx+1;
+  document.getElementById('bar-total').textContent=`/ ${stops.length}`;
+  document.getElementById('btn-prev').disabled=idx===0;
+  document.getElementById('btn-next').disabled=idx===stops.length-1;
+  document.getElementById('progress-fill').style.width=`${((idx+1)/stops.length)*100}%`;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SWIPE GESTURES
+// ─────────────────────────────────────────────────────────────────────────────
+let tX=0,tY=0,isSwiping=false,isScrolling=false;
+const vp=document.getElementById('swipe-viewport');
+vp.addEventListener('touchstart',e=>{tX=e.touches[0].clientX;tY=e.touches[0].clientY;isSwiping=false;isScrolling=false;document.getElementById('swipe-track').classList.add('dragging');},{passive:true});
+vp.addEventListener('touchmove',e=>{
+  const dx=e.touches[0].clientX-tX,dy=e.touches[0].clientY-tY,dist=Math.sqrt(dx*dx+dy*dy);
+  if(!isSwiping&&!isScrolling&&dist>8){Math.abs(dy)/dist<0.75?(isSwiping=true):(isScrolling=true);}
+  if(isSwiping){e.preventDefault();const off=(-currentIdx()*vp.offsetWidth)+dx;document.getElementById('swipe-track').style.transform=`translateX(${off}px)`;}
+},{passive:false});
+vp.addEventListener('touchend',e=>{
+  document.getElementById('swipe-track').classList.remove('dragging');
+  if(isSwiping){const dx=e.changedTouches[0].clientX-tX;if(Math.abs(dx)>50){goTo(currentIdx()+(dx<0?1:-1));}else{document.getElementById('swipe-track').style.transform=`translateX(${-currentIdx()*100}%)`;}}
+  isSwiping=false;isScrolling=false;
+},{passive:true});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// LIST OVERLAY
+// ─────────────────────────────────────────────────────────────────────────────
+let listTab='route';
+function openList(){listTab=activeTab;renderListTab(listTab);document.getElementById('ltab-route').classList.toggle('active',listTab==='route');document.getElementById('ltab-bonus').classList.toggle('active',listTab==='bonus');document.getElementById('list-overlay').classList.add('open');}
+function closeList(){document.getElementById('list-overlay').classList.remove('open');}
+function switchListTab(tab){listTab=tab;document.getElementById('ltab-route').classList.toggle('active',tab==='route');document.getElementById('ltab-bonus').classList.toggle('active',tab==='bonus');renderListTab(tab);}
+function renderListTab(tab){
+  const stops=tab==='route'?routeStops:bonusStops,isBonus=tab==='bonus';
+  const visited=isBonus?visitedBonus:visitedRoute,curIdx=isBonus?bonusIdx:routeIdx;
+  const scroll=document.getElementById('stops-scroll');
+  scroll.innerHTML=stops.map((s,i)=>`
+    <div class="sli${isBonus?' bonus-sli':''} ${(tab===activeTab&&i===curIdx)?'current-sli':''}" onclick="closeList();switchTab('${tab}');goTo(${i})">
+      <div class="sli-num${isBonus?' bnum':''}">${isBonus?s.id:i+1}</div>
+      <div class="sli-info"><div class="sli-name">${s.name}</div><div class="sli-km">${isBonus?s.subtitle:s.km}</div></div>
+      ${visited.has(i)?`<div class="sli-check${isBonus?' bcheck':''}">✓</div>`:''}
+    </div>`).join('');
+  setTimeout(()=>{const cur=scroll.querySelector('.current-sli');if(cur)cur.scrollIntoView({block:'center'});},50);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// LIGHTBOX
+// ─────────────────────────────────────────────────────────────────────────────
+function openLightbox(url,cap){document.getElementById('lb-img').src=url;document.getElementById('lb-cap').textContent=cap;document.getElementById('lightbox').classList.add('open');}
+function closeLightbox(){document.getElementById('lightbox').classList.remove('open');}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// HINT + SPLASH + KEYBOARD
+// ─────────────────────────────────────────────────────────────────────────────
+function showHint(){const h=document.getElementById('swipe-hint');h.classList.add('show');setTimeout(()=>h.classList.remove('show'),2800);}
+document.getElementById('splash').addEventListener('click',()=>{document.getElementById('splash').classList.add('hidden');document.getElementById('app').classList.add('visible');});
+document.addEventListener('keydown',e=>{
+  if(e.key==='ArrowRight'||e.key==='ArrowDown')go(1);
+  if(e.key==='ArrowLeft'||e.key==='ArrowUp')go(-1);
+  if(e.key==='Escape'){closeLightbox();closeList();}
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// INIT
+// ─────────────────────────────────────────────────────────────────────────────
+renderAll();showHint();
+</script>
+</body>
+</html>
